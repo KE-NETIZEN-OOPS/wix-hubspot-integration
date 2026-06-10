@@ -1,0 +1,16 @@
+{
+  "name": "wix-hubspot-integration",
+  "version": "1.0.0",
+  "description": "Wix backend integration with HubSpot CRM",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0"
+  }
+}
