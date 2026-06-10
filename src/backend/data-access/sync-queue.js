@@ -19,19 +19,26 @@ export async function enqueue({ syncId, source, eventType, contactId, payload })
 export async function getPendingBatch(limit = 10) {
   const { items } = await wixData.query(COLLECTION)
     .eq('status', 'pending')
+    .limit(limit)
     .find(OPTS)
-  return items.slice(0, limit).map(item => ({
+  return items.map(item => ({
     ...item,
     payload: JSON.parse(item.payload || '{}'),
   }))
 }
 
 export async function markProcessing(id) {
-  return wixData.update(COLLECTION, { _id: id, status: 'processing' }, OPTS)
+  const { items } = await wixData.query(COLLECTION).eq('_id', id).find(OPTS)
+  const item = items[0]
+  if (!item) return
+  return wixData.update(COLLECTION, { ...item, status: 'processing' }, OPTS)
 }
 
 export async function markDone(id) {
-  return wixData.update(COLLECTION, { _id: id, status: 'done' }, OPTS)
+  const { items } = await wixData.query(COLLECTION).eq('_id', id).find(OPTS)
+  const item = items[0]
+  if (!item) return
+  return wixData.update(COLLECTION, { ...item, status: 'done' }, OPTS)
 }
 
 export async function markFailed(id, error) {
@@ -44,9 +51,8 @@ export async function markFailed(id, error) {
 }
 
 export async function countLeads() {
-  const { items } = await wixData.query(COLLECTION)
+  return wixData.query(COLLECTION)
     .eq('eventType', 'form.submitted')
     .eq('status', 'done')
-    .find(OPTS)
-  return items.length
+    .count(OPTS)
 }

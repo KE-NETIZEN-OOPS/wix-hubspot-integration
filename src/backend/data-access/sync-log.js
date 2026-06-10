@@ -21,14 +21,16 @@ export async function hasBeenProcessed(syncId) {
 export async function getLastSyncForContact(wixContactId) {
   const { items } = await wixData.query(COLLECTION)
     .eq('wixContactId', wixContactId)
+    .descending('_createdDate')
+    .limit(1)
     .find(OPTS)
-  if (!items.length) return null
-  return items.sort((a, b) => new Date(b._createdDate) - new Date(a._createdDate))[0]
+  return items[0] || null
 }
 
 export async function purgeExpired() {
   const cutoff = new Date(Date.now() - TTL_MS)
-  const { items } = await wixData.query(COLLECTION).find(OPTS)
-  const expired = items.filter(i => new Date(i._createdDate) < cutoff)
-  await Promise.all(expired.map(i => wixData.remove(COLLECTION, i._id, OPTS)))
+  const { items } = await wixData.query(COLLECTION)
+    .lt('_createdDate', cutoff)
+    .find(OPTS)
+  await Promise.all(items.map(i => wixData.remove(COLLECTION, i._id, OPTS)))
 }

@@ -22,6 +22,5 @@ export async function upsertMapping({ wixContactId, hubspotContactId, lastSyncSo
 }
 
 export async function countSynced() {
-  const { items } = await wixData.query(COLLECTION).find(OPTS)
-  return items.length
+  return wixData.query(COLLECTION).count(OPTS)
 }
