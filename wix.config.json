@@ -1,0 +1,10 @@
+{
+  "jobs": [
+    {
+      "functionLocation": "/backend/jobs/sync-worker",
+      "executionConfig": {
+        "cronExpression": "* * * * *"
+      }
+    }
+  ]
+}
