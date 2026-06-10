@@ -123,12 +123,20 @@ export async function getContactProperties() {
 }
 
 export async function registerWebhook(appId, targetUrl) {
-  return hsPost(`/webhooks/v3/${appId}/subscriptions`, {
-    eventType: 'contact.propertyChange',
-    propertyName: '*',
-    active: true,
-    targetUrl,
-  })
+  const [propertyChange, creation] = await Promise.all([
+    hsPost(`/webhooks/v3/${appId}/subscriptions`, {
+      eventType: 'contact.propertyChange',
+      propertyName: '*',
+      active: true,
+      targetUrl,
+    }),
+    hsPost(`/webhooks/v3/${appId}/subscriptions`, {
+      eventType: 'contact.creation',
+      active: true,
+      targetUrl,
+    }),
+  ])
+  return { propertyChange, creation }
 }
 
 export async function deregisterWebhook(appId, subscriptionId) {
