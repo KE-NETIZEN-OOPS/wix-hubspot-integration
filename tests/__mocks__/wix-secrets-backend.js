@@ -23,4 +23,10 @@ module.exports = {
     if (entry) entry.value = value
     return Promise.resolve()
   }),
+
+  deleteSecret: jest.fn(id => {
+    const key = Object.keys(secrets).find(k => secrets[k].id === id)
+    if (key) delete secrets[key]
+    return Promise.resolve()
+  }),
 }

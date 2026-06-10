@@ -1,8 +1,9 @@
 const store = {}
+let _seq = 0
 
 const wixData = {
   _store: store,
-  _reset() { Object.keys(store).forEach(k => delete store[k]) },
+  _reset() { Object.keys(store).forEach(k => delete store[k]); _seq = 0 },
 
   query(collection) {
     const chain = {
@@ -20,7 +21,7 @@ const wixData = {
 
   insert(collection, item) {
     if (!store[collection]) store[collection] = []
-    const saved = { ...item, _id: item._id || String(Date.now()) }
+    const saved = { ...item, _id: item._id || `mock_${Date.now()}_${++_seq}` }
     store[collection].push(saved)
     return Promise.resolve(saved)
   },
