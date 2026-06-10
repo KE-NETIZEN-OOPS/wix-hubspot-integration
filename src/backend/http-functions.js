@@ -4,6 +4,12 @@ import { getSecret } from 'wix-secrets-backend'
 import { handleCallback, verifyOAuthState } from './services/hubspot-oauth'
 import { enqueue } from './data-access/sync-queue'
 import { hasBeenProcessed } from './data-access/sync-log'
+import { isConnected, buildAuthUrl, disconnect as doDisconnect } from './services/hubspot-oauth'
+import { getTokens } from './services/token-store'
+import { countSynced } from './data-access/contact-id-map'
+import { countLeads } from './data-access/sync-queue'
+import { getAllMappings, saveMappings } from './data-access/field-mappings'
+import { getContactProperties } from './services/hubspot-client'
 
 const WEBHOOK_SECRET_NAME = 'hubspot_webhook_secret'
 
@@ -59,6 +65,72 @@ export async function post_hubspotWebhook(request) {
   } catch (err) {
     console.error('Webhook error:', err.message)
     return serverError({ body: JSON.stringify({ error: 'Webhook processing failed' }) })
+  }
+}
+
+export async function get_connectionStatus(request) {
+  try {
+    const connected = await isConnected()
+    if (!connected) return ok({ body: JSON.stringify({ connected: false }) })
+
+    const tokens = await getTokens()
+    const [synced, leads] = await Promise.all([countSynced(), countLeads()])
+    return ok({ body: JSON.stringify({
+      connected: true,
+      portalId: tokens.portalId,
+      stats: { synced, leads, lastSync: new Date().toISOString() },
+    }) })
+  } catch (err) {
+    return serverError({ body: JSON.stringify({ error: err.message }) })
+  }
+}
+
+export async function get_startOauth(request) {
+  try {
+    const redirectUri = `${request.baseUrl}/_functions/oauth-callback`
+    const authUrl = await buildAuthUrl(redirectUri)
+    return ok({ body: JSON.stringify({ authUrl }) })
+  } catch (err) {
+    return serverError({ body: JSON.stringify({ error: err.message }) })
+  }
+}
+
+export async function post_disconnect(request) {
+  try {
+    await doDisconnect()
+    return ok({ body: JSON.stringify({ disconnected: true }) })
+  } catch (err) {
+    return serverError({ body: JSON.stringify({ error: err.message }) })
+  }
+}
+
+export async function get_fieldMappings(request) {
+  try {
+    const [mappings, hsProps] = await Promise.all([getAllMappings(), getContactProperties()])
+    const wixFields = ['email', 'firstName', 'lastName', 'phone', 'company', 'address', 'birthdate']
+    return ok({ body: JSON.stringify({ mappings, hsProps, wixFields }) })
+  } catch (err) {
+    return serverError({ body: JSON.stringify({ error: err.message }) })
+  }
+}
+
+export async function post_saveFieldMappings(request) {
+  try {
+    const body = await request.body.json()
+    const { mappings } = body
+
+    const seen = new Set()
+    for (const m of mappings) {
+      if (seen.has(m.hubspotProperty)) {
+        return badRequest({ body: JSON.stringify({ error: `Duplicate HubSpot property: ${m.hubspotProperty}` }) })
+      }
+      seen.add(m.hubspotProperty)
+    }
+
+    await saveMappings(mappings)
+    return ok({ body: JSON.stringify({ saved: true }) })
+  } catch (err) {
+    return serverError({ body: JSON.stringify({ error: err.message }) })
   }
 }
 
