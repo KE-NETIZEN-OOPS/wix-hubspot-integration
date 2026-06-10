@@ -9,17 +9,31 @@ const SCOPES = [
   'webhooks',
 ].join(' ')
 
-// Set this to your HubSpot app ID once you create the app in HubSpot developer portal
-const HUBSPOT_APP_ID = process.env.HUBSPOT_APP_ID || 'REPLACE_WITH_APP_ID'
+async function getAppId() {
+  return getSecret('hubspot_app_id')
+}
 
 export async function buildAuthUrl(redirectUri) {
   const clientId = await getSecret('hubspot_client_id')
+  const state = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  await _upsertSecret('hubspot_oauth_state', state)
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     scope: SCOPES,
+    state,
   })
   return `https://app.hubspot.com/oauth/authorize?${params}`
+}
+
+export async function verifyOAuthState(incomingState) {
+  try {
+    const stored = await getSecret('hubspot_oauth_state')
+    await _deleteSecretByName('hubspot_oauth_state')
+    return stored === incomingState
+  } catch {
+    return false
+  }
 }
 
 export async function handleCallback(code, redirectUri) {
@@ -30,24 +44,28 @@ export async function handleCallback(code, redirectUri) {
   const tokens = await exchangeCodeForTokens(code, redirectUri, clientId, clientSecret)
   await saveTokens(tokens)
 
+  const appId = await getAppId()
   const webhookTargetUrl = redirectUri.replace('oauth-callback', 'hubspot-webhook')
-  const subs = await registerWebhook(HUBSPOT_APP_ID, webhookTargetUrl)
+  const subs = await registerWebhook(appId, webhookTargetUrl)
 
   // Store subscription IDs for disconnect
-  await _upsertSecret('hubspot_webhook_sub_propertychange', String(subs.propertyChange.id))
-  await _upsertSecret('hubspot_webhook_sub_creation', String(subs.creation.id))
+  await Promise.all([
+    _upsertSecret('hubspot_webhook_sub_propertychange', String(subs.propertyChange.id)),
+    _upsertSecret('hubspot_webhook_sub_creation', String(subs.creation.id)),
+  ])
 
   return tokens.portalId
 }
 
 export async function disconnect() {
   try {
-    const [subPropChange, subCreation] = await Promise.all([
+    const [appId, subPropChange, subCreation] = await Promise.all([
+      getAppId().catch(() => null),
       getSecret('hubspot_webhook_sub_propertychange').catch(() => null),
       getSecret('hubspot_webhook_sub_creation').catch(() => null),
     ])
-    if (subPropChange) await deregisterWebhook(HUBSPOT_APP_ID, subPropChange).catch(() => {})
-    if (subCreation) await deregisterWebhook(HUBSPOT_APP_ID, subCreation).catch(() => {})
+    if (appId && subPropChange) await deregisterWebhook(appId, subPropChange).catch(() => {})
+    if (appId && subCreation) await deregisterWebhook(appId, subCreation).catch(() => {})
   } catch {
     // best-effort deregister
   }

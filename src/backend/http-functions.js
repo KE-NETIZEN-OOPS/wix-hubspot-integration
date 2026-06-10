@@ -1,7 +1,7 @@
-import { ok, serverError, badRequest } from 'wix-http-functions'
-import { createHmac } from 'crypto'
+import { ok, serverError, badRequest, response } from 'wix-http-functions'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { getSecret } from 'wix-secrets-backend'
-import { handleCallback } from './services/hubspot-oauth'
+import { handleCallback, verifyOAuthState } from './services/hubspot-oauth'
 import { enqueue } from './data-access/sync-queue'
 import { hasBeenProcessed } from './data-access/sync-log'
 
@@ -9,15 +9,19 @@ const WEBHOOK_SECRET_NAME = 'hubspot_webhook_secret'
 
 export async function get_oauthCallback(request) {
   try {
-    const { code } = request.query
+    const { code, state } = request.query
     if (!code) return badRequest({ body: JSON.stringify({ error: 'Missing code' }) })
 
-    const redirectUri = `${request.baseUrl}/_functions/oauth-callback`
-    const portalId = await handleCallback(code, redirectUri)
+    const stateValid = await verifyOAuthState(state)
+    if (!stateValid) return badRequest({ body: JSON.stringify({ error: 'Invalid state' }) })
 
-    return ok({
+    const redirectUri = `${request.baseUrl}/_functions/oauth-callback`
+    await handleCallback(code, redirectUri)
+
+    return response({
+      status: 302,
       headers: { Location: `https://${request.baseUrl}/dashboard/connect?connected=true` },
-      body: JSON.stringify({ portalId }),
+      body: '',
     })
   } catch (err) {
     console.error('OAuth callback error:', err.message)
@@ -35,7 +39,7 @@ export async function post_hubspotWebhook(request) {
 
     const events = JSON.parse(rawBody)
     for (const event of events) {
-      const syncId = `hs_${event.objectId}_${event.occurredAt}`
+      const syncId = `hs_${event.objectId}_${event.occurredAt}_${event.propertyName || event.subscriptionType}`
 
       // Drop echo: if this event was triggered by our own write, skip it
       if (event.propertyName === 'hs_sync_id') continue
@@ -63,8 +67,13 @@ async function verifyHmac(body, signature) {
   try {
     const secret = await getSecret(WEBHOOK_SECRET_NAME)
     const expected = createHmac('sha256', secret).update(body).digest('hex')
-    return expected === signature
-  } catch {
+    try {
+      return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+    } catch {
+      return false
+    }
+  } catch (err) {
+    console.error('Webhook signature verification failed — check hubspot_webhook_secret in SecretManager')
     return false
   }
 }
