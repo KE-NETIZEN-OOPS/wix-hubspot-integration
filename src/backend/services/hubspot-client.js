@@ -1,24 +1,31 @@
 import { fetch } from 'wix-fetch'
+import { getSecret } from 'wix-secrets-backend'
 import { getTokens, saveTokens, needsRefresh } from './token-store'
 
 const HS_BASE = 'https://api.hubspot.com'
 const HS_TOKEN_URL = 'https://api.hubspot.com/oauth/v1/token'
 
+let _refreshPromise = null
+
 async function getAccessToken() {
   const tokens = await getTokens()
   if (!tokens) throw new Error('HubSpot not connected')
+  if (!needsRefresh(tokens.expiresAt)) return tokens.accessToken
 
-  if (needsRefresh(tokens.expiresAt)) {
-    const { getSecret } = await import('wix-secrets-backend')
+  if (!_refreshPromise) {
     const [clientId, clientSecret] = await Promise.all([
       getSecret('hubspot_client_id'),
       getSecret('hubspot_client_secret'),
     ])
-    const refreshed = await _refreshAccessToken(tokens.refreshToken, clientId, clientSecret, tokens.portalId)
-    await saveTokens(refreshed)
-    return refreshed.accessToken
+    _refreshPromise = _refreshAccessToken(tokens.refreshToken, clientId, clientSecret, tokens.portalId)
+      .then(async refreshed => {
+        await saveTokens(refreshed)
+        return refreshed
+      })
+      .finally(() => { _refreshPromise = null })
   }
-  return tokens.accessToken
+  const refreshed = await _refreshPromise
+  return refreshed.accessToken
 }
 
 async function _refreshAccessToken(refreshToken, clientId, clientSecret, portalId) {
@@ -54,8 +61,7 @@ async function hsPost(path, body) {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`HubSpot POST ${path} failed: ${res.status} ${err}`)
+    throw new Error(`HubSpot POST ${path} failed: ${res.status}`)
   }
   return res.json()
 }
@@ -114,28 +120,32 @@ export async function searchContactByEmail(email) {
     properties: ['email', 'firstname', 'lastname', 'phone', 'hs_sync_id'],
     limit: 1,
   })
-  return result.results[0] || null
+  return result?.results?.[0] ?? null
 }
 
 export async function getContactProperties() {
   const result = await hsGet('/crm/v3/properties/contacts?limit=100')
-  return result.results.map(p => ({ name: p.name, label: p.label }))
+  return (result?.results ?? []).map(p => ({ name: p.name, label: p.label }))
 }
 
 export async function registerWebhook(appId, targetUrl) {
-  const [propertyChange, creation] = await Promise.all([
-    hsPost(`/webhooks/v3/${appId}/subscriptions`, {
-      eventType: 'contact.propertyChange',
-      propertyName: '*',
-      active: true,
-      targetUrl,
-    }),
-    hsPost(`/webhooks/v3/${appId}/subscriptions`, {
+  const propertyChange = await hsPost(`/webhooks/v3/${appId}/subscriptions`, {
+    eventType: 'contact.propertyChange',
+    propertyName: '*',
+    active: true,
+    targetUrl,
+  })
+  let creation
+  try {
+    creation = await hsPost(`/webhooks/v3/${appId}/subscriptions`, {
       eventType: 'contact.creation',
       active: true,
       targetUrl,
-    }),
-  ])
+    })
+  } catch (err) {
+    await hsDelete(`/webhooks/v3/${appId}/subscriptions/${propertyChange.id}`).catch(() => {})
+    throw err
+  }
   return { propertyChange, creation }
 }
 
