@@ -3,11 +3,11 @@ import { getSecret, createSecret, updateSecret, deleteSecret, listSecretInfo } f
 const KEYS = ['hubspot_access_token', 'hubspot_refresh_token', 'hubspot_token_expiry', 'hubspot_portal_id']
 const REFRESH_BUFFER_MS = 5 * 60 * 1000
 
-async function upsertSecret(name, value) {
-  const all = await listSecretInfo()
-  const existing = all.find(s => s.name === name)
-  if (existing) {
-    await updateSecret(existing.id, { value: String(value) })
+async function upsertSecret(name, value, existingSecrets) {
+  const all = existingSecrets || await listSecretInfo()
+  const found = all.find(s => s.name === name)
+  if (found) {
+    await updateSecret(found.id, { value: String(value) })
   } else {
     await createSecret({ name, value: String(value) })
   }
@@ -25,11 +25,12 @@ export async function getTokens() {
 }
 
 export async function saveTokens({ accessToken, refreshToken, expiresAt, portalId }) {
+  const existing = await listSecretInfo()
   await Promise.all([
-    upsertSecret('hubspot_access_token', accessToken),
-    upsertSecret('hubspot_refresh_token', refreshToken),
-    upsertSecret('hubspot_token_expiry', expiresAt),
-    upsertSecret('hubspot_portal_id', portalId),
+    upsertSecret('hubspot_access_token', accessToken, existing),
+    upsertSecret('hubspot_refresh_token', refreshToken, existing),
+    upsertSecret('hubspot_token_expiry', expiresAt, existing),
+    upsertSecret('hubspot_portal_id', portalId, existing),
   ])
 }
 
