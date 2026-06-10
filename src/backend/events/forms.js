@@ -7,46 +7,51 @@ import { searchContactByEmail, createContact, updateContact } from '../services/
 import { v4 as uuidv4 } from 'uuid'
 
 export async function wixForms_onFormSubmit(event) {
-  const { submission } = event
-  const formData = submission.submissionData || {}
-  const email = formData.email
+  try {
+    const { submission } = event
+    const formData = submission.submissionData || {}
+    const email = formData.email
 
-  if (!email) return
+    if (!email) return
 
-  const mappings = await getAllMappings()
-  const utm = extractUtmFields(formData)
-  const syncId = uuidv4()
+    const mappings = await getAllMappings()
+    const utm = extractUtmFields(formData)
+    const syncId = uuidv4()
 
-  const baseProps = buildSyncPayload(formData, mappings, 'wix')
-  const attributionProps = buildAttributionProperties(utm, Date.now())
+    const baseProps = buildSyncPayload(formData, mappings, 'wix')
+    const attributionProps = buildAttributionProperties(utm, submission.submittedAt ?? Date.now())
 
-  const hsProperties = {
-    ...baseProps,
-    ...attributionProps,
-    hs_sync_id: syncId,
+    const hsProperties = {
+      email,
+      ...baseProps,
+      ...attributionProps,
+      hs_sync_id: syncId,
+    }
+
+    const existingHsContact = await searchContactByEmail(email)
+
+    let hubspotContactId
+    if (existingHsContact) {
+      hubspotContactId = existingHsContact.id
+      await updateContact(hubspotContactId, hsProperties)
+    } else {
+      const created = await createContact(hsProperties)
+      hubspotContactId = created.id
+    }
+
+    await upsertMapping({
+      wixContactId: submission.contactId || `email_${email}`,
+      hubspotContactId,
+      lastSyncSource: 'wix',
+    })
+
+    await logSync({
+      syncId,
+      source: 'wix',
+      wixContactId: submission.contactId || `email_${email}`,
+      hubspotContactId,
+    })
+  } catch (err) {
+    console.error('Form capture failed:', err.message)
   }
-
-  const existingHsContact = await searchContactByEmail(email)
-
-  let hubspotContactId
-  if (existingHsContact) {
-    hubspotContactId = existingHsContact.id
-    await updateContact(hubspotContactId, hsProperties)
-  } else {
-    const created = await createContact(hsProperties)
-    hubspotContactId = created.id
-  }
-
-  await upsertMapping({
-    wixContactId: submission.contactId || `form_${syncId}`,
-    hubspotContactId,
-    lastSyncSource: 'wix',
-  })
-
-  await logSync({
-    syncId,
-    source: 'wix',
-    wixContactId: submission.contactId || `form_${syncId}`,
-    hubspotContactId,
-  })
 }

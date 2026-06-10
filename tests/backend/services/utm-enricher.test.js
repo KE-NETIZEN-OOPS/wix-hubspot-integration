@@ -41,10 +41,10 @@ test('buildAttributionProperties maps to HubSpot property names', () => {
     utm_source: 'facebook',
     utm_medium: 'social',
     utm_campaign: 'launch',
-    utm_content: undefined,
-    utm_term: undefined,
     original_source_url: 'https://site.com/page',
     original_referrer: 'https://fb.com',
     first_form_submitted_at: '2026-06-10T10:00:00.000Z',
   })
+  expect(props).not.toHaveProperty('utm_content')
+  expect(props).not.toHaveProperty('utm_term')
 })

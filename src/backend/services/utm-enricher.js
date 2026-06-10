@@ -8,14 +8,13 @@ export function extractUtmFields(formData) {
 }
 
 export function buildAttributionProperties(utm, submittedAtMs) {
-  return {
-    utm_source: utm.utm_source,
-    utm_medium: utm.utm_medium,
-    utm_campaign: utm.utm_campaign,
-    utm_content: utm.utm_content,
-    utm_term: utm.utm_term,
+  const props = {
     original_source_url: utm.page_url,
     original_referrer: utm.referrer,
     first_form_submitted_at: new Date(submittedAtMs).toISOString(),
   }
+  for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
+    if (utm[k] != null) props[k] = utm[k]
+  }
+  return props
 }
