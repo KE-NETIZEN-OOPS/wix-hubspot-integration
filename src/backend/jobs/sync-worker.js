@@ -45,7 +45,8 @@ async function syncWixContactToHubspot(item, mappings) {
 
   if (mapping) {
     const current = await getContact(mapping.hubspotContactId)
-    if (!hasChanged(current.properties, hsPayload)) return
+    const { hs_sync_id: _ignored, ...hsPayloadForDiff } = hsPayload
+    if (!hasChanged(current.properties, hsPayloadForDiff)) return
     await updateContact(mapping.hubspotContactId, hsPayload)
   } else {
     const created = await createContact(hsPayload)

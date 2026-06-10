@@ -17,9 +17,9 @@ test('isOwnEcho returns false for unknown syncId', async () => {
   expect(result).toBe(false)
 })
 
-test('taggedWithSyncId extracts hs_sync_id from hubspot event payload', () => {
-  const hsPayload = { email: 'a@b.com', hs_sync_id: 'my-sync-id' }
-  expect(taggedWithSyncId(hsPayload)).toBe('my-sync-id')
+test('taggedWithSyncId extracts _sync_id from wix contact entity', () => {
+  const wixEntity = { email: 'a@b.com', _sync_id: 'my-sync-id' }
+  expect(taggedWithSyncId(wixEntity)).toBe('my-sync-id')
 })
 
 test('taggedWithSyncId returns null when not tagged', () => {
@@ -34,6 +34,6 @@ test('taggedWithSyncId returns null for undefined payload', () => {
   expect(taggedWithSyncId(undefined)).toBeNull()
 })
 
-test('taggedWithSyncId returns empty string when hs_sync_id is empty string', () => {
-  expect(taggedWithSyncId({ hs_sync_id: '' })).toBe('')
+test('taggedWithSyncId returns empty string when _sync_id is empty string', () => {
+  expect(taggedWithSyncId({ _sync_id: '' })).toBe('')
 })

@@ -5,5 +5,5 @@ export async function isOwnEcho(syncId) {
 }
 
 export function taggedWithSyncId(payload) {
-  return payload?.hs_sync_id ?? null
+  return payload?._sync_id ?? null
 }

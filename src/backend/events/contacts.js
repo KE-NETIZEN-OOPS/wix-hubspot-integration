@@ -19,7 +19,7 @@ export async function wixCrm_onContactCreated(event) {
       firstName,
       lastName,
       phone: phones?.[0]?.phone,
-      updatedAt: Date.now(),
+      updatedAt: new Date(event.metadata?.updatedAt || event.metadata?.createdAt || Date.now()).getTime(),
     },
   })
 }
