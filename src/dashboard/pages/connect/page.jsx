@@ -7,6 +7,7 @@ const STATS_POLL_MS = 30000
 export default function ConnectPage() {
   const [status, setStatus] = useState({ loading: true, connected: false, portalId: null })
   const [stats, setStats] = useState({ synced: 0, leads: 0, lastSync: null })
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     checkConnection()
@@ -19,7 +20,7 @@ export default function ConnectPage() {
       const res = await httpClient.fetchWithAuth('/_functions/connection-status')
       const data = await res.json()
       setStatus({ loading: false, connected: data.connected, portalId: data.portalId })
-      if (data.connected) setStats(data.stats || stats)
+      if (data.connected) setStats(data.stats || {})
     } catch {
       setStatus(s => ({ ...s, loading: false }))
     }
@@ -41,7 +42,7 @@ export default function ConnectPage() {
       await httpClient.fetchWithAuth('/_functions/disconnect', { method: 'POST' })
       setStatus({ loading: false, connected: false, portalId: null })
     } catch (err) {
-      console.error('Disconnect failed:', err.message)
+      setError('Disconnect failed. Please try again.')
     }
   }
 
@@ -58,6 +59,8 @@ export default function ConnectPage() {
           {status.connected ? '● Connected' : '○ Not connected'}
         </span>
       </div>
+
+      {error && <div style={styles.error}>{error}</div>}
 
       {status.connected && (
         <>
@@ -117,4 +120,5 @@ const styles = {
   btnDanger: { background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 },
   btnSecondary: { background: '#ede9fe', color: '#7c3aed', border: '1px solid #c4b5fd', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 },
   muted: { color: '#9ca3af' },
+  error: { background: '#fee2e2', color: '#dc2626', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 },
 }

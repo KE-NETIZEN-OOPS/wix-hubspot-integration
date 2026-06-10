@@ -15,6 +15,7 @@ export default function FieldMappingPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -27,6 +28,7 @@ export default function FieldMappingPage() {
       setRows(mappings.length ? mappings : [emptyRow()])
     } catch (err) {
       setError('Failed to load mappings')
+      setLoadFailed(true)
     }
   }
 
@@ -60,8 +62,11 @@ export default function FieldMappingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings: valid }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) {
+        let errMsg = 'Save failed'
+        try { const d = await res.json(); errMsg = d.error || errMsg } catch {}
+        throw new Error(errMsg)
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -87,8 +92,8 @@ export default function FieldMappingPage() {
       <table style={styles.table}>
         <thead>
           <tr>
-            {['Wix Field', 'HubSpot Property', 'Direction', 'Transform', ''].map(h => (
-              <th key={h} style={styles.th}>{h}</th>
+            {['Wix Field', 'HubSpot Property', 'Direction', 'Transform', 'delete'].map(h => (
+              <th key={h} style={styles.th}>{h === 'delete' ? '' : h}</th>
             ))}
           </tr>
         </thead>
@@ -126,7 +131,7 @@ export default function FieldMappingPage() {
       </table>
 
       <div style={styles.footer}>
-        <button style={saving ? styles.btnSavingDisabled : styles.btnSave} onClick={handleSave} disabled={saving}>
+        <button style={saving || loadFailed ? styles.btnSavingDisabled : styles.btnSave} onClick={handleSave} disabled={saving || loadFailed}>
           {saving ? 'Saving…' : 'Save Mappings'}
         </button>
       </div>

@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { getSecret } from 'wix-secrets-backend'
 import { handleCallback, verifyOAuthState } from './services/hubspot-oauth'
 import { enqueue } from './data-access/sync-queue'
-import { hasBeenProcessed } from './data-access/sync-log'
+import { hasBeenProcessed, getLatestSyncTimestamp } from './data-access/sync-log'
 import { isConnected, buildAuthUrl, disconnect as doDisconnect } from './services/hubspot-oauth'
 import { getTokens } from './services/token-store'
 import { countSynced } from './data-access/contact-id-map'
@@ -74,14 +74,15 @@ export async function get_connectionStatus(request) {
     if (!connected) return ok({ body: JSON.stringify({ connected: false }) })
 
     const tokens = await getTokens()
-    const [synced, leads] = await Promise.all([countSynced(), countLeads()])
+    const [synced, leads, lastSync] = await Promise.all([countSynced(), countLeads(), getLatestSyncTimestamp()])
     return ok({ body: JSON.stringify({
       connected: true,
       portalId: tokens.portalId,
-      stats: { synced, leads, lastSync: new Date().toISOString() },
+      stats: { synced, leads, lastSync: lastSync ? new Date(lastSync).toISOString() : null },
     }) })
   } catch (err) {
-    return serverError({ body: JSON.stringify({ error: err.message }) })
+    console.error('get_connectionStatus error:', err.message)
+    return serverError({ body: JSON.stringify({ error: 'Internal server error' }) })
   }
 }
 
@@ -91,7 +92,8 @@ export async function get_startOauth(request) {
     const authUrl = await buildAuthUrl(redirectUri)
     return ok({ body: JSON.stringify({ authUrl }) })
   } catch (err) {
-    return serverError({ body: JSON.stringify({ error: err.message }) })
+    console.error('get_startOauth error:', err.message)
+    return serverError({ body: JSON.stringify({ error: 'Internal server error' }) })
   }
 }
 
@@ -100,7 +102,8 @@ export async function post_disconnect(request) {
     await doDisconnect()
     return ok({ body: JSON.stringify({ disconnected: true }) })
   } catch (err) {
-    return serverError({ body: JSON.stringify({ error: err.message }) })
+    console.error('post_disconnect error:', err.message)
+    return serverError({ body: JSON.stringify({ error: 'Internal server error' }) })
   }
 }
 
@@ -110,7 +113,8 @@ export async function get_fieldMappings(request) {
     const wixFields = ['email', 'firstName', 'lastName', 'phone', 'company', 'address', 'birthdate']
     return ok({ body: JSON.stringify({ mappings, hsProps, wixFields }) })
   } catch (err) {
-    return serverError({ body: JSON.stringify({ error: err.message }) })
+    console.error('get_fieldMappings error:', err.message)
+    return serverError({ body: JSON.stringify({ error: 'Internal server error' }) })
   }
 }
 
@@ -118,6 +122,24 @@ export async function post_saveFieldMappings(request) {
   try {
     const body = await request.body.json()
     const { mappings } = body
+
+    if (!Array.isArray(mappings)) {
+      return badRequest({ body: JSON.stringify({ error: 'Invalid mappings: must be an array' }) })
+    }
+
+    const VALID_DIRECTIONS = new Set(['wix_to_hs', 'hs_to_wix', 'both'])
+    const VALID_TRANSFORMS = new Set(['none', 'trim', 'lowercase'])
+    for (const m of mappings) {
+      if (!m.wixField || !m.hubspotProperty) {
+        return badRequest({ body: JSON.stringify({ error: 'Each mapping must have wixField and hubspotProperty' }) })
+      }
+      if (m.direction && !VALID_DIRECTIONS.has(m.direction)) {
+        return badRequest({ body: JSON.stringify({ error: `Invalid direction: ${m.direction}` }) })
+      }
+      if (m.transform && !VALID_TRANSFORMS.has(m.transform)) {
+        return badRequest({ body: JSON.stringify({ error: `Invalid transform: ${m.transform}` }) })
+      }
+    }
 
     const seen = new Set()
     for (const m of mappings) {
@@ -130,7 +152,8 @@ export async function post_saveFieldMappings(request) {
     await saveMappings(mappings)
     return ok({ body: JSON.stringify({ saved: true }) })
   } catch (err) {
-    return serverError({ body: JSON.stringify({ error: err.message }) })
+    console.error('post_saveFieldMappings error:', err.message)
+    return serverError({ body: JSON.stringify({ error: 'Internal server error' }) })
   }
 }
 

@@ -34,3 +34,11 @@ export async function purgeExpired() {
     .find(OPTS)
   await Promise.all(items.map(i => wixData.remove(COLLECTION, i._id, OPTS)))
 }
+
+export async function getLatestSyncTimestamp() {
+  const { items } = await wixData.query(COLLECTION)
+    .descending('_createdDate')
+    .limit(1)
+    .find(OPTS)
+  return items[0]?._createdDate || null
+}
