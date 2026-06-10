@@ -15,6 +15,7 @@ export function buildSyncPayload(sourceData, mappings, source) {
     const sourceKey = source === 'wix' ? mapping.wixField : mapping.hubspotProperty
     const targetKey = source === 'wix' ? mapping.hubspotProperty : mapping.wixField
 
+    if (sourceKey == null || targetKey == null) continue
     if (!(sourceKey in sourceData)) continue
 
     const raw = sourceData[sourceKey]

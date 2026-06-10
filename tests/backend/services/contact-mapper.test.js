@@ -1,4 +1,4 @@
-const { buildSyncPayload, shouldSyncField } = require('../../../src/backend/services/contact-mapper')
+const { buildSyncPayload, shouldSyncField, hasChanged } = require('../../../src/backend/services/contact-mapper')
 
 const mappings = [
   { wixField: 'email', hubspotProperty: 'email', direction: 'both', transform: 'none' },
@@ -46,4 +46,20 @@ test('buildSyncPayload skips undefined fields', () => {
   const sourceData = { email: 'x@x.com' }
   const payload = buildSyncPayload(sourceData, mappings, 'wix')
   expect(payload).not.toHaveProperty('phone')
+})
+
+test('hasChanged returns true when a value differs', () => {
+  expect(hasChanged({ email: 'old@x.com' }, { email: 'new@x.com' })).toBe(true)
+})
+
+test('hasChanged returns false when all values match', () => {
+  expect(hasChanged({ email: 'a@x.com', name: 'Bob' }, { email: 'a@x.com' })).toBe(false)
+})
+
+test('hasChanged returns true when incomingData has a key not in currentData', () => {
+  expect(hasChanged({}, { email: 'a@x.com' })).toBe(true)
+})
+
+test('shouldSyncField returns false for unknown direction', () => {
+  expect(shouldSyncField({ direction: 'unknown_direction' }, 'wix')).toBe(false)
 })

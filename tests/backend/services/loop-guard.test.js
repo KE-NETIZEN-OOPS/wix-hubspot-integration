@@ -25,3 +25,15 @@ test('taggedWithSyncId extracts hs_sync_id from hubspot event payload', () => {
 test('taggedWithSyncId returns null when not tagged', () => {
   expect(taggedWithSyncId({ email: 'a@b.com' })).toBeNull()
 })
+
+test('taggedWithSyncId returns null for null payload', () => {
+  expect(taggedWithSyncId(null)).toBeNull()
+})
+
+test('taggedWithSyncId returns null for undefined payload', () => {
+  expect(taggedWithSyncId(undefined)).toBeNull()
+})
+
+test('taggedWithSyncId returns empty string when hs_sync_id is empty string', () => {
+  expect(taggedWithSyncId({ hs_sync_id: '' })).toBe('')
+})
