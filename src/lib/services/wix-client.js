@@ -37,6 +37,17 @@ function _toWixInfo(fields) {
   if (fields._sync_id) info.extendedFields = { items: { '_sync_id': fields._sync_id } }
   return info
 }
+export async function listWixContactsUpdatedSince(isoTimestamp) {
+  const body = {
+    query: {
+      filter: isoTimestamp ? { 'primaryInfo.updatedDate': { $gte: isoTimestamp } } : {},
+      sort: [{ fieldName: 'primaryInfo.updatedDate', order: 'DESC' }],
+      paging: { limit: 100 },
+    },
+  }
+  const data = await wixReq('POST', '/contacts/v4/contacts/query', body)
+  return data.contacts || []
+}
 export function extractWixContactFields(contact) {
   const info = contact.info || {}
   return {

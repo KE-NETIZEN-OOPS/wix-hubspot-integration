@@ -1,14 +1,15 @@
-import { getPendingBatch, markProcessing, markDone, markFailed } from '../data-access/sync-queue.js'
-import { logSync, hasBeenProcessed, purgeExpired } from '../data-access/sync-log.js'
+import { getPendingBatch, markProcessing, markDone, markFailed, enqueue } from '../data-access/sync-queue.js'
+import { logSync, hasBeenProcessed, purgeExpired, getLatestSyncTimestamp } from '../data-access/sync-log.js'
 import { getByWixId, getByHubspotId, upsertMapping } from '../data-access/contact-id-map.js'
 import { getAllMappings } from '../data-access/field-mappings.js'
 import { buildSyncPayload, hasChanged } from '../services/contact-mapper.js'
 import { getContact, updateContact, createContact } from '../services/hubspot-client.js'
-import { createWixContact, updateWixContact } from '../services/wix-client.js'
+import { createWixContact, updateWixContact, listWixContactsUpdatedSince, extractWixContactFields } from '../services/wix-client.js'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function processSyncQueue() {
   await purgeExpired()
+  await pollWixContacts()
   const batch = await getPendingBatch(10)
   if (!batch.length) return
   const mappings = await getAllMappings()
@@ -21,6 +22,21 @@ export async function processSyncQueue() {
       console.error(`Sync failed for queue item ${item._id}:`, err.message)
       await markFailed(item._id, err.message)
     }
+  }
+}
+
+async function pollWixContacts() {
+  try {
+    const lastSync = await getLatestSyncTimestamp()
+    const contacts = await listWixContactsUpdatedSince(lastSync)
+    for (const contact of contacts) {
+      const syncId = `wix_poll_${contact.id}_${contact.revision || 0}`
+      if (await hasBeenProcessed(syncId)) continue
+      const fields = extractWixContactFields(contact)
+      await enqueue({ syncId, source: 'wix', eventType: 'contact.updated', contactId: contact.id, payload: fields })
+    }
+  } catch (err) {
+    console.error('Wix poll error:', err.message)
   }
 }
 
