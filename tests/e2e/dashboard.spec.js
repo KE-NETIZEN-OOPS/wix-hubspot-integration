@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test')
 
 // Live production URL + bypass token for API integration tests
-const PROD = 'https://wix-hubspot-integration-j5wdrklm5-abedmach13-7398s-projects.vercel.app'
+const PROD = 'https://wix-hubspot-integration-9p8lb3nnm-abedmach13-7398s-projects.vercel.app'
 const BYPASS = 'LztAMkHk3grQO9bfFJSYtD1WkTSlw12T'
 const prodHeaders = { 'x-vercel-protection-bypass': BYPASS }
 
