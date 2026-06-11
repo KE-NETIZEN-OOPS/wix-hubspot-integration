@@ -47,7 +47,6 @@ async function processItem(item, mappings) {
 
 async function syncWixContactToHubspot(item, mappings) {
   const hsPayload = buildSyncPayload(item.payload, mappings, 'wix')
-  hsPayload.hs_sync_id = item.syncId
   let mapping = await getByWixId(item.contactId)
   if (mapping) {
     const current = await getContact(mapping.hubspot_contact_id)

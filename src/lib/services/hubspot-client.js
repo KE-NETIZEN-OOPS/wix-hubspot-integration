@@ -30,7 +30,10 @@ async function hsGet(path) {
 async function hsPost(path, body) {
   const token = await getAccessToken()
   const res = await fetch(`${HS_BASE}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  if (!res.ok) throw new Error(`HubSpot POST ${path} failed: ${res.status}`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`HubSpot POST ${path} failed: ${res.status} — ${text.slice(0, 300)}`)
+  }
   return res.json()
 }
 async function hsPatch(path, body) {
