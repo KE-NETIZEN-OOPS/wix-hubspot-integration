@@ -1,6 +1,11 @@
 const WIX_BASE = 'https://www.wixapis.com'
 function wixHeaders() {
-  return { Authorization: process.env.WIX_API_KEY, 'wix-site-id': process.env.WIX_SITE_ID, 'Content-Type': 'application/json' }
+  return {
+    Authorization: process.env.WIX_API_KEY,
+    'wix-site-id': process.env.WIX_SITE_ID,
+    'wix-account-id': process.env.WIX_ACCOUNT_ID,
+    'Content-Type': 'application/json',
+  }
 }
 export async function getWixContact(contactId) {
   const res = await fetch(`${WIX_BASE}/crm/v3/contacts/${contactId}`, { headers: wixHeaders() })
