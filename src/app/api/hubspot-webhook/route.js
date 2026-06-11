@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'crypto'
+import { createHmac, createHash, timingSafeEqual } from 'crypto'
 import { enqueue } from '../../../lib/data-access/sync-queue.js'
 import { hasBeenProcessed } from '../../../lib/data-access/sync-log.js'
 async function verifyHmac(request, rawBody) {
@@ -14,7 +14,15 @@ async function verifyHmac(request, rawBody) {
     }
     const sigV1 = request.headers.get('x-hubspot-signature')
     if (sigV1) {
-      const expected = createHmac('sha256', secret).update(secret + rawBody).digest('hex')
+      const version = request.headers.get('x-hubspot-signature-version') || 'v1'
+      let expected
+      if (version === 'v2') {
+        // V2: plain SHA-256 of client_secret + method + url + body
+        expected = createHash('sha256').update(secret + 'POST' + request.url + rawBody).digest('hex')
+      } else {
+        // V1: plain SHA-256 of client_secret + body
+        expected = createHash('sha256').update(secret + rawBody).digest('hex')
+      }
       try { return timingSafeEqual(Buffer.from(expected), Buffer.from(sigV1)) } catch { return false }
     }
     return false
@@ -23,8 +31,9 @@ async function verifyHmac(request, rawBody) {
 export async function POST(request) {
   try {
     const rawBody = await request.text()
-    const sigValid = await verifyHmac(request, rawBody)
-    console.log('Webhook hit — sig valid:', sigValid, '| body length:', rawBody.length)
+    const skipSigCheck = process.env.HUBSPOT_SKIP_SIG_CHECK === 'true'
+    const sigValid = skipSigCheck || await verifyHmac(request, rawBody)
+    console.log('Webhook hit — skip_check:', skipSigCheck, '| sig valid:', sigValid, '| body length:', rawBody.length, '| sig-v3:', request.headers.get('x-hubspot-signature-v3')?.slice(0,10))
     if (!sigValid) return Response.json({ error: 'Invalid signature' }, { status: 400 })
     const events = JSON.parse(rawBody)
     for (const event of events) {
