@@ -8,6 +8,7 @@ import { Suspense } from 'react'
 function relativeTime(isoStr) {
   const diff = Date.now() - new Date(isoStr).getTime()
   const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
   if (mins < 60) return `${mins}m ago`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`
@@ -16,7 +17,7 @@ function relativeTime(isoStr) {
 
 function payloadSummary(payload) {
   if (!payload || typeof payload !== 'object') return ''
-  const keys = Object.keys(payload).filter(k => k !== 'updatedAt' && k !== '_sync_id')
+  const keys = Object.keys(payload).filter(k => !k.startsWith('_') && k !== 'updatedAt')
   if (!keys.length) return ''
   const key = keys[0]
   const val = String(payload[key] ?? '').slice(0, 30)

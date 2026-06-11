@@ -12,7 +12,7 @@ export async function getAllMappings() {
 }
 export async function saveMappings(mappings) {
   const db = getDb()
-  const { error: delErr } = await db.from('field_mappings').delete().match({})
+  const { error: delErr } = await db.from('field_mappings').delete().not('id', 'is', null)
   if (delErr) throw delErr
   if (!mappings.length) return
   await Promise.all(mappings.map(m =>
