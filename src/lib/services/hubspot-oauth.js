@@ -1,4 +1,4 @@
-import { exchangeCodeForTokens, registerWebhook, deregisterWebhook } from './hubspot-client.js'
+import { exchangeCodeForTokens } from './hubspot-client.js'
 import { saveTokens, getTokens, clearTokens } from './token-store.js'
 const SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.schemas.contacts.read'].join(' ')
 export async function buildAuthUrl(redirectUri) {
@@ -15,21 +15,9 @@ export async function handleCallback(code, redirectUri) {
   const clientSecret = process.env.HUBSPOT_CLIENT_SECRET
   const tokens = await exchangeCodeForTokens(code, redirectUri, clientId, clientSecret)
   await saveTokens(tokens)
-  const appId = process.env.HUBSPOT_APP_ID
-  const webhookTargetUrl = redirectUri.replace('oauth-callback', 'hubspot-webhook')
-  const subs = await registerWebhook(appId, webhookTargetUrl)
-  process.env._HS_SUB_PROPCHANGE = String(subs.propertyChange.id)
-  process.env._HS_SUB_CREATION = String(subs.creation.id)
   return tokens.portalId
 }
 export async function disconnect() {
-  try {
-    const appId = process.env.HUBSPOT_APP_ID
-    const subPropChange = process.env._HS_SUB_PROPCHANGE
-    const subCreation = process.env._HS_SUB_CREATION
-    if (appId && subPropChange) await deregisterWebhook(appId, subPropChange).catch(() => {})
-    if (appId && subCreation) await deregisterWebhook(appId, subCreation).catch(() => {})
-  } catch {}
   await clearTokens()
 }
 export async function isConnected() { return (await getTokens()) !== null }
