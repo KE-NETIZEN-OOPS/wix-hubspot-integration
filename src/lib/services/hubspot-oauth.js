@@ -1,17 +1,14 @@
 import { exchangeCodeForTokens, registerWebhook, deregisterWebhook } from './hubspot-client.js'
 import { saveTokens, getTokens, clearTokens } from './token-store.js'
 const SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.schemas.contacts.read'].join(' ')
-let _oauthState = null
 export async function buildAuthUrl(redirectUri) {
   const clientId = process.env.HUBSPOT_CLIENT_ID
-  _oauthState = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: SCOPES, state: _oauthState })
-  return `https://app.hubspot.com/oauth/authorize?${params}`
+  const state = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: SCOPES, state })
+  return { authUrl: `https://app.hubspot.com/oauth/authorize?${params}`, state }
 }
-export function verifyOAuthState(incomingState) {
-  const valid = _oauthState !== null && _oauthState === incomingState
-  _oauthState = null
-  return valid
+export function verifyOAuthState(incomingState, expectedState) {
+  return typeof expectedState === 'string' && expectedState.length > 0 && incomingState === expectedState
 }
 export async function handleCallback(code, redirectUri) {
   const clientId = process.env.HUBSPOT_CLIENT_ID
