@@ -3,7 +3,12 @@ export async function getAllMappings() {
   const db = getDb()
   const { data, error } = await db.from('field_mappings').select('*')
   if (error) throw error
-  return data
+  return data.map(m => ({
+    wixField: m.wix_field,
+    hubspotProperty: m.hubspot_property,
+    direction: m.direction,
+    transform: m.transform,
+  }))
 }
 export async function saveMappings(mappings) {
   const db = getDb()
