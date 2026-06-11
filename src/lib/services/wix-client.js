@@ -25,8 +25,8 @@ export async function createWixContact(fields) {
 }
 export async function updateWixContact(contactId, fields) {
   const current = await wixReq('GET', `/contacts/v4/contacts/${contactId}`)
-  const revision = current.contact?.revision || '0'
-  const data = await wixReq('PATCH', `/contacts/v4/contacts/${contactId}`, { contact: { info: _toWixInfo(fields), revision } })
+  const revision = String(current.contact?.revision || '1')
+  const data = await wixReq('PATCH', `/contacts/v4/contacts/${contactId}`, { contact: { info: _toWixInfo(fields) }, revision })
   return data.contact
 }
 function _toWixInfo(fields) {
