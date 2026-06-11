@@ -40,8 +40,8 @@ function _toWixInfo(fields) {
 export async function listWixContactsUpdatedSince(isoTimestamp) {
   const body = {
     query: {
-      filter: isoTimestamp ? { 'primaryInfo.updatedDate': { $gte: isoTimestamp } } : {},
-      sort: [{ fieldName: 'primaryInfo.updatedDate', order: 'DESC' }],
+      filter: isoTimestamp ? { updatedDate: { $gte: isoTimestamp } } : {},
+      sort: [{ fieldName: 'updatedDate', order: 'DESC' }],
       paging: { limit: 100 },
     },
   }
