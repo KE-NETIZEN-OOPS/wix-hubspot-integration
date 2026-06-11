@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { handleCallback, verifyOAuthState } from '../../../lib/services/hubspot-oauth.js'
+import { registerWebhook } from '../../../lib/services/hubspot-client.js'
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -12,6 +13,13 @@ export async function GET(request) {
     if (!verifyOAuthState(state, expectedState)) return NextResponse.json({ error: 'Invalid state' }, { status: 400 })
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     await handleCallback(code, `${appUrl}/api/oauth-callback`)
+    // Register webhook subscription (best-effort — may already exist)
+    try {
+      const appId = process.env.HUBSPOT_APP_ID
+      await registerWebhook(appId, `${appUrl}/api/hubspot-webhook`)
+    } catch (err) {
+      console.warn('Webhook registration failed (may already exist):', err.message)
+    }
     const res = NextResponse.redirect(`${appUrl}/dashboard/connect?connected=true`)
     res.cookies.delete('hs_oauth_state')
     return res

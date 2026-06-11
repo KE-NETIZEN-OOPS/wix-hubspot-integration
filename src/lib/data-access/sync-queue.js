@@ -30,7 +30,7 @@ export async function markFailed(id, errorMsg) {
 }
 export async function countLeads() {
   const db = getDb()
-  const { count, error } = await db.from('sync_queue').select('*', { count: 'exact' }).eq('event_type', 'form.submitted').eq('status', 'done')
+  const { count, error } = await db.from('sync_queue').select('*', { count: 'exact' }).eq('source', 'wix').eq('status', 'done')
   if (error) throw error
   return count != null ? count : 0
 }

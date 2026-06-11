@@ -78,3 +78,7 @@ export async function registerWebhook(appId, targetUrl) {
   return { propertyChange, creation }
 }
 export async function deregisterWebhook(appId, subscriptionId) { return hsDelete(`/webhooks/v3/${appId}/subscriptions/${subscriptionId}`) }
+export async function listWebhookSubscriptions(appId) {
+  const data = await hsGet(`/webhooks/v3/${appId}/subscriptions`)
+  return data.results || []
+}
