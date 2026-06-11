@@ -1,0 +1,30 @@
+const { _mockClient } = require('@supabase/supabase-js')
+beforeEach(() => { _mockClient._reset(); jest.resetModules() })
+async function load() { return import('../../../src/lib/data-access/sync-queue.js') }
+test('enqueue inserts with pending status', async () => {
+  const { enqueue, getPendingBatch } = await load()
+  await enqueue({ syncId: 'sid1', source: 'wix', eventType: 'contact.created', contactId: 'c1', payload: { email: 'a@b.com' } })
+  const batch = await getPendingBatch(10)
+  expect(batch).toHaveLength(1)
+  expect(batch[0].syncId).toBe('sid1')
+})
+test('getPendingBatch respects limit', async () => {
+  const { enqueue, getPendingBatch } = await load()
+  for (let i = 0; i < 5; i++) await enqueue({ syncId: `sid${i}`, source: 'wix', eventType: 'contact.created', contactId: `c${i}`, payload: {} })
+  expect(await getPendingBatch(3)).toHaveLength(3)
+})
+test('markDone removes item from pending batch', async () => {
+  const { enqueue, getPendingBatch, markDone } = await load()
+  await enqueue({ syncId: 'sid1', source: 'wix', eventType: 'contact.created', contactId: 'c1', payload: {} })
+  const [item] = await getPendingBatch(1)
+  await markDone(item._id)
+  expect(await getPendingBatch(10)).toHaveLength(0)
+})
+test('markFailed increments retryCount', async () => {
+  const { enqueue, getPendingBatch, markFailed } = await load()
+  await enqueue({ syncId: 'sid1', source: 'wix', eventType: 'contact.created', contactId: 'c1', payload: {} })
+  const [item] = await getPendingBatch(1)
+  await markFailed(item._id, 'some error')
+  expect(_mockClient._store['sync_queue'][0].retry_count).toBe(1)
+  expect(_mockClient._store['sync_queue'][0].status).toBe('pending')
+})

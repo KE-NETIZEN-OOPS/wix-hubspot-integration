@@ -1,0 +1,22 @@
+import { getDb } from '../db.js'
+export async function getAllMappings() {
+  const db = getDb()
+  const { data, error } = await db.from('field_mappings').select('*')
+  if (error) throw error
+  return data
+}
+export async function saveMappings(mappings) {
+  const db = getDb()
+  const { error: delErr } = await db.from('field_mappings').delete().match({})
+  if (delErr) throw delErr
+  if (!mappings.length) return
+  await Promise.all(mappings.map(m =>
+    db.from('field_mappings').insert({ wix_field: m.wixField, hubspot_property: m.hubspotProperty, direction: m.direction || 'both', transform: m.transform || 'none' })
+  ))
+}
+export function applyTransform(value, transform) {
+  if (!value) return value
+  if (transform === 'trim') return String(value).trim()
+  if (transform === 'lowercase') return String(value).toLowerCase()
+  return value
+}
