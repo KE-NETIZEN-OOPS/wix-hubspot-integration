@@ -17,18 +17,27 @@ export async function GET() {
       db.from('sync_log').select('sync_id,source,created_at').order('created_at', { ascending: false }).limit(20),
       db.from('sync_log').select('*', { count: 'exact', head: true }),
     ])
+    const CONTACT_ID = 'dc8cd5ba-7e4e-46f6-a292-7755e0074e47'
+    const wixHdrs = { Authorization: process.env.WIX_API_KEY, 'wix-site-id': process.env.WIX_SITE_ID, 'wix-account-id': process.env.WIX_ACCOUNT_ID, 'Content-Type': 'application/json' }
     // Test Wix GET for the known contact
-    let wixContact = null
+    let wixContact = null, patchTest = null
     try {
-      const wixRes = await fetch('https://www.wixapis.com/contacts/v4/contacts/dc8cd5ba-7e4e-46f6-a292-7755e0074e47', {
-        headers: { Authorization: process.env.WIX_API_KEY, 'wix-site-id': process.env.WIX_SITE_ID, 'wix-account-id': process.env.WIX_ACCOUNT_ID }
-      })
+      const wixRes = await fetch(`https://www.wixapis.com/contacts/v4/contacts/${CONTACT_ID}`, { headers: wixHdrs })
       const wixData = await wixRes.json()
-      wixContact = { status: wixRes.status, revision: wixData.contact?.revision, id: wixData.contact?.id, keys: Object.keys(wixData.contact || {}) }
+      const revision = wixData.contact?.revision
+      wixContact = { status: wixRes.status, revision, revisionType: typeof revision, id: wixData.contact?.id }
+      // Test PATCH with body matching exactly what sync worker sends
+      const patchBody = { contact: { info: { name: { first: 'Debug', last: 'Test' } } }, revision: String(revision || '1') }
+      const patchRes = await fetch(`https://www.wixapis.com/contacts/v4/contacts/${CONTACT_ID}`, {
+        method: 'PATCH', headers: wixHdrs, body: JSON.stringify(patchBody)
+      })
+      const patchData = await patchRes.json()
+      patchTest = { status: patchRes.status, body: JSON.stringify(patchBody), response: JSON.stringify(patchData).slice(0, 300) }
     } catch (e) { wixContact = { error: e.message } }
 
     return Response.json({
       wixContact,
+      patchTest,
       writeTest: insertErr ? { ok: false, error: insertErr.message, code: insertErr.code } : { ok: true },
       pending: pending || [],
       pendingError: pErr?.message,
