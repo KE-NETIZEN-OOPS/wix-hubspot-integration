@@ -1,6 +1,6 @@
 import { exchangeCodeForTokens, registerWebhook, deregisterWebhook } from './hubspot-client.js'
 import { saveTokens, getTokens, clearTokens } from './token-store.js'
-const SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.schemas.contacts.read', 'webhooks'].join(' ')
+const SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.schemas.contacts.read'].join(' ')
 let _oauthState = null
 export async function buildAuthUrl(redirectUri) {
   const clientId = process.env.HUBSPOT_CLIENT_ID
