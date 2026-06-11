@@ -1,4 +1,4 @@
-import { getDb } from '../../../../lib/db.js'
+import { getDb } from '../../../lib/db.js'
 export async function GET() {
   try {
     const db = getDb()
