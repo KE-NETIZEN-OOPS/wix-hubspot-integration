@@ -9,7 +9,10 @@ export async function getWixContact(contactId) {
 }
 export async function createWixContact(fields) {
   const res = await fetch(`${WIX_BASE}/crm/v3/contacts`, { method: 'POST', headers: wixHeaders(), body: JSON.stringify({ info: _toWixInfo(fields) }) })
-  if (!res.ok) throw new Error(`Wix createContact failed: ${res.status}`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Wix createContact failed: ${res.status} — ${text}`)
+  }
   return (await res.json()).contact
 }
 export async function updateWixContact(contactId, fields) {

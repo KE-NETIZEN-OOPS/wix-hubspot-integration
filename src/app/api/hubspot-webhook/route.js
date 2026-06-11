@@ -23,7 +23,9 @@ async function verifyHmac(request, rawBody) {
 export async function POST(request) {
   try {
     const rawBody = await request.text()
-    if (!await verifyHmac(request, rawBody)) return Response.json({ error: 'Invalid signature' }, { status: 400 })
+    const sigValid = await verifyHmac(request, rawBody)
+    console.log('Webhook hit — sig valid:', sigValid, '| body length:', rawBody.length)
+    if (!sigValid) return Response.json({ error: 'Invalid signature' }, { status: 400 })
     const events = JSON.parse(rawBody)
     for (const event of events) {
       if (event.propertyName === 'hs_sync_id') continue
