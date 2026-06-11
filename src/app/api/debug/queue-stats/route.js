@@ -12,8 +12,8 @@ export async function GET() {
     if (!insertErr) await db.from('sync_queue').delete().eq('sync_id', testSyncId)
 
     const [{ data: pending, error: pErr }, { data: recent }, { data: log, error: lErr }, { count: logCount }] = await Promise.all([
-      db.from('sync_queue').select('id,sync_id,source,status,created_at,error').eq('status', 'pending').limit(10),
-      db.from('sync_queue').select('id,sync_id,source,status,created_at,error').order('created_at', { ascending: false }).limit(20),
+      db.from('sync_queue').select('id,sync_id,source,status,retry_count,created_at,error').eq('status', 'pending').limit(10),
+      db.from('sync_queue').select('id,sync_id,source,status,retry_count,created_at,error').order('created_at', { ascending: false }).limit(20),
       db.from('sync_log').select('sync_id,source,created_at').order('created_at', { ascending: false }).limit(20),
       db.from('sync_log').select('*', { count: 'exact', head: true }),
     ])
