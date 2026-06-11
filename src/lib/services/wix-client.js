@@ -7,38 +7,43 @@ function wixHeaders() {
     'Content-Type': 'application/json',
   }
 }
-export async function getWixContact(contactId) {
-  const res = await fetch(`${WIX_BASE}/crm/v3/contacts/${contactId}`, { headers: wixHeaders() })
-  if (!res.ok) throw new Error(`Wix getContact failed: ${res.status}`)
-  return (await res.json()).contact
-}
-export async function createWixContact(fields) {
-  const res = await fetch(`${WIX_BASE}/crm/v3/contacts`, { method: 'POST', headers: wixHeaders(), body: JSON.stringify({ info: _toWixInfo(fields) }) })
+async function wixReq(method, path, body) {
+  const res = await fetch(`${WIX_BASE}${path}`, { method, headers: wixHeaders(), body: body ? JSON.stringify(body) : undefined })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Wix createContact failed: ${res.status} — ${text}`)
+    throw new Error(`Wix ${method} ${path} failed: ${res.status} — ${text.slice(0, 300)}`)
   }
-  return (await res.json()).contact
+  return res.json()
+}
+export async function getWixContact(contactId) {
+  const data = await wixReq('GET', `/contacts/v4/contacts/${contactId}`)
+  return data.contact
+}
+export async function createWixContact(fields) {
+  const data = await wixReq('POST', '/contacts/v4/contacts', { info: _toWixInfo(fields) })
+  return data.contact
 }
 export async function updateWixContact(contactId, fields) {
-  const res = await fetch(`${WIX_BASE}/crm/v3/contacts/${contactId}`, { method: 'PATCH', headers: wixHeaders(), body: JSON.stringify({ info: _toWixInfo(fields), revision: '0' }) })
-  if (!res.ok) throw new Error(`Wix updateContact failed: ${res.status}`)
-  return (await res.json()).contact
+  const current = await wixReq('GET', `/contacts/v4/contacts/${contactId}`)
+  const revision = current.contact?.revision || '0'
+  const data = await wixReq('PATCH', `/contacts/v4/contacts/${contactId}`, { contact: { info: _toWixInfo(fields), revision } })
+  return data.contact
 }
 function _toWixInfo(fields) {
   const info = {}
-  if (fields.firstName || fields.lastName) info.name = { first: fields.firstName, last: fields.lastName }
-  if (fields.email) info.emails = [{ tag: 'MAIN', email: fields.email }]
-  if (fields.phone) info.phones = [{ tag: 'MOBILE', phone: fields.phone }]
-  if (fields._sync_id) info.extendedFields = { '_sync_id': fields._sync_id }
+  if (fields.firstName || fields.lastName) info.name = { first: fields.firstName || '', last: fields.lastName || '' }
+  if (fields.email) info.emails = { items: [{ tag: 'MAIN', email: fields.email }] }
+  if (fields.phone) info.phones = { items: [{ tag: 'MOBILE', phone: fields.phone }] }
+  if (fields._sync_id) info.extendedFields = { items: { '_sync_id': fields._sync_id } }
   return info
 }
 export function extractWixContactFields(contact) {
+  const info = contact.info || {}
   return {
-    firstName: contact.info && contact.info.name && contact.info.name.first,
-    lastName: contact.info && contact.info.name && contact.info.name.last,
-    email: contact.info && contact.info.emails && contact.info.emails[0] && contact.info.emails[0].email,
-    phone: contact.info && contact.info.phones && contact.info.phones[0] && contact.info.phones[0].phone,
-    _sync_id: contact.info && contact.info.extendedFields && contact.info.extendedFields['_sync_id'],
+    firstName: info.name?.first,
+    lastName: info.name?.last,
+    email: info.emails?.items?.[0]?.email,
+    phone: info.phones?.items?.[0]?.phone,
+    _sync_id: info.extendedFields?.items?.['_sync_id'],
   }
 }
