@@ -26,13 +26,17 @@ export async function processSyncQueue() {
 }
 
 async function pollWixContacts() {
-  const lastSync = await getLatestSyncTimestamp()
-  const contacts = await listWixContactsUpdatedSince(lastSync)
-  for (const contact of contacts) {
-    const syncId = `wix_poll_${contact.id}_${contact.revision || 0}`
-    if (await hasBeenProcessed(syncId)) continue
-    const fields = extractWixContactFields(contact)
-    await enqueue({ syncId, source: 'wix', eventType: 'contact.updated', contactId: contact.id, payload: fields })
+  try {
+    const lastSync = await getLatestSyncTimestamp()
+    const contacts = await listWixContactsUpdatedSince(lastSync)
+    for (const contact of contacts) {
+      const syncId = `wix_poll_${contact.id}_${contact.revision || 0}`
+      if (await hasBeenProcessed(syncId)) continue
+      const fields = extractWixContactFields(contact)
+      await enqueue({ syncId, source: 'wix', eventType: 'contact.updated', contactId: contact.id, payload: fields })
+    }
+  } catch (err) {
+    console.error('Wix poll failed:', err.message)
   }
 }
 
